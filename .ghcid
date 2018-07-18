@@ -1,0 +1,2 @@
+-c "cabal new-repl -w ghc-8.2 exe:demo" -T ":main"
+--restart reflex-dom-fragment-shader-canvas.cabal
