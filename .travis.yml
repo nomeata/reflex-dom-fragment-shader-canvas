@@ -118,9 +118,9 @@ jobs:
      script:
        - cabal configure --distdir=dist-ghcjs --ghcjs --disable-library-profiling
        - cabal build     --distdir=dist-ghcjs
-       - cabal haddock   --distdir=dist-ghcjs --executables --internal --hyperlink-source
+       # - cabal haddock   --distdir=dist-ghcjs --executables --internal --hyperlink-source
        - cp -vr dist-ghcjs/build/*/*.jsexe gh-page
-       - cp -vr dist-ghcjs/doc/html/*/* gh-page/doc
+       # - cp -vr dist-ghcjs/doc/html/*/* gh-page/doc
        # - echo 'domain.de' > gh-page/CNAME
 
      deploy:
