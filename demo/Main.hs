@@ -21,6 +21,7 @@ main = mainWidgetWithHead htmlHead $ mdo
         (_textArea_value inp)
     return ()
   where
+    htmlHead :: DomBuilder t m => m ()
     htmlHead = do
         el "style" (text css)
         el "title" (text "Fragment Shader Demo")
