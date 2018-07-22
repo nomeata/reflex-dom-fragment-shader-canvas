@@ -21,16 +21,19 @@ vertexShaderSource =
   \  gl_Position = vec4(a_position, 0, 1);\
   \}"
 
+-- | An example fragment shader program, drawing a red circle
 trivialFragmentShader :: Text
 trivialFragmentShader = Text.unlines
   [ "precision mediump float;"
   , "uniform vec2 u_windowSize;"
   , "void main() {"
   , "  float s = 2.0 / min(u_windowSize.x, u_windowSize.y);"
-  , "  vec2 pos0 = s * (gl_FragCoord.xy - 0.5 * u_windowSize);"
-  , "  if (length(pos0) > 1.0) { gl_FragColor = vec4(0,0,0,0); return; }"
-  , "  vec3 col0 = vec3(1.0,0.0,0.0);"
-  , "  gl_FragColor = vec4(col0, 1.0);"
+  , "  vec2 pos = s * (gl_FragCoord.xy - 0.5 * u_windowSize);"
+  , "  // pos is a scaled pixel position, (0,0) is in the center of the canvas"
+  , "  // If the position is outside the inscriped circle, paint black"
+  , "  if (length(pos) > 1.0) { gl_FragColor = vec4(0,0,0,0); return; }"
+  , "  // Otherwise, return red"
+  , "  gl_FragColor = vec4(1.0,0.0,0.0,1.0);"
   , "}"
   ]
 
