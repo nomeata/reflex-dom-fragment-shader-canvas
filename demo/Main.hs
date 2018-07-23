@@ -15,7 +15,7 @@ main = mainWidgetWithHead htmlHead $ mdo
 
     dError <- divClass "right" $ fragmentShaderCanvas
         -- Here we determine the resolution of the canvas
-        -- It would be desireable to do so synamically, based on the widget
+        -- It would be desireable to do so dynamically, based on the widget
         -- size. But Reflex.Dom.Widget.Resize messes with the CSS layout.
         (mconcat [ "width"  =: "1000" , "height" =: "1000" ])
         (_textArea_value inp)
