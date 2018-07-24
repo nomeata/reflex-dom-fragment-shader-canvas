@@ -4,7 +4,7 @@ base:                    302739
 containers-0.5.10.2-9DI272UIy6s2SQuD3F70c5:187430
 dependent-map-0.2.4.0-32eHSSirETfDaWbUwj8hBE:46390
 dependent-sum-0.4-BZoye34pA9x3sTa7hHctRB:12880
-ghc-prim:                33338
+ghc-prim:                33346
 ghcjs-base-0.2.0.0-CqU4GKBi8uoBrdfr3gip5Y:6783
 ghcjs-dom-jsffi-0.9.2.0-4XSyp7vrFsN7iepQLSdOOM:86888
 ghcjs-prim-0.1.1.0-Lw1qzAJ9IR31NFzWC6t27Z:7877
@@ -103,7 +103,7 @@ ghc-prim
     GHC.CString:                        7509
     GHC.Classes:                        3052
     GHC.Tuple:                          3005
-    GHC.Types:                          19772
+    GHC.Types:                          19780
 
 ghcjs-base-0.2.0.0-CqU4GKBi8uoBrdfr3gip5Y
     Data.JSString.Text:                 193
