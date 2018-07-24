@@ -6,6 +6,8 @@ description:
   the source code of a WebGL fragment shader, and renders it to
   a HTML canvas element.
   .
+  A live demo can be found at <https://nomeata.github.io/reflex-dom-fragment-shader-canvas/>.
+  .
   It also provides possible compiler errors in another `Dynamic t Text`.
 homepage:            https://github.com/nomeata/reflex-dom-fragment-shader-canvas
 license:             MIT
