@@ -30,7 +30,7 @@ trivialFragmentShader = Text.unlines
   , "  float s = 2.0 / min(u_windowSize.x, u_windowSize.y);"
   , "  vec2 pos = s * (gl_FragCoord.xy - 0.5 * u_windowSize);"
   , "  // pos is a scaled pixel position, (0,0) is in the center of the canvas"
-  , "  // If the position is outside the inscriped circle, make it transparent"
+  , "  // If the position is outside the inscribed circle, make it transparent"
   , "  if (length(pos) > 1.0) { gl_FragColor = vec4(0,0,0,0); return; }"
   , "  // Otherwise, return red"
   , "  gl_FragColor = vec4(1.0,0.0,0.0,1.0);"
