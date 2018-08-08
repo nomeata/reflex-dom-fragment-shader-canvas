@@ -11,8 +11,10 @@ import Control.Monad.IO.Class
 import Reflex.Dom
 
 import GHCJS.DOM.Types hiding (Text)
-import Language.Javascript.JSaddle.String
-import Language.Javascript.JSaddle.Object (js1, js2, jsf, js, js0, new, jsg, jss)
+import GHCJS.DOM.HTMLCanvasElement
+import GHCJS.DOM.WebGLRenderingContextBase
+import Language.Javascript.JSaddle.Object (new, jsg, js1)
+
 
 vertexShaderSource :: Text
 vertexShaderSource =
@@ -37,84 +39,59 @@ trivialFragmentShader = Text.unlines
   , "}"
   ]
 
--- | Creates an off-screen canvas of the same size,
--- render, executes the given operation on it, and then
--- copies the data back
---
--- probably better to do this:
--- https://www.khronos.org/webgl/wiki/HandlingContextLost
-onOffScreenCanvas :: MonadJSM m => JSVal -> (JSVal -> m ()) -> m ()
-onOffScreenCanvas onScreen paint = do
-  offScreen <- liftJSM $ jsg ("document" :: Text) ^. js1 ("createElement" :: Text) ("canvas" :: Text)
-  liftJSM $ offScreen ^. jss ("width" :: Text)  (onScreen ^. js ("width" :: Text))
-  liftJSM $ offScreen ^. jss ("height" :: Text) (onScreen ^. js ("height" :: Text))
-
-  paint offScreen
-
-  liftJSM $ do
-     ctx <- liftJSM $ onScreen ^. js1 ("getContext"::Text) ("2d"::Text)
-     ctx ^. jsf ("drawImage"::Text) (offScreen, 0::Int, 0::Int)
-
-  return ()
-
-
-paintGL :: (MonadJSM m) => (Maybe Text -> m ()) -> Text -> JSVal -> m ()
+paintGL :: MonadDOM m => (Maybe Text -> m ()) -> Text -> HTMLCanvasElement -> m ()
 paintGL printErr fragmentShaderSource canvas = do
   -- adaption of
   -- https://blog.mayflower.de/4584-Playing-around-with-pixel-shaders-in-WebGL.html
 
-  gl <- liftJSM $ canvas ^. js1 ("getContext"::Text) ("experimental-webgl"::Text)
-  liftJSM $ gl ^. jsf ("viewport"::Text) (0::Int, 0::Int, gl ^. js ("drawingBufferWidth"::Text), gl ^. js ("drawingBufferHeight"::Text))
+  gl <- getContextUnsafe canvas ("experimental-webgl"::Text) ([]::[()])
+  gl <- unsafeCastTo WebGLRenderingContext gl
 
-  -- gl ^. jsf "clearColor" [1.0, 0.0, 0.0, 1.0 :: Double]
-  -- gl ^. js1 "clear" (gl^. js "COLOR_BUFFER_BIT")
+  w <- getDrawingBufferWidth gl
+  h <- getDrawingBufferHeight gl
+  viewport gl 0 0 w h
 
-  buffer <- liftJSM $ gl ^. js0 ("createBuffer"::Text)
-  liftJSM $ gl ^. jsf ("bindBuffer"::Text) (gl ^. js ("ARRAY_BUFFER"::Text), buffer)
-  liftJSM $ gl ^. jsf ("bufferData"::Text)
-    ( gl ^. js ("ARRAY_BUFFER"::Text)
-    , new (jsg ("Float32Array"::Text)) [[
-      -1.0, -1.0,
-       1.0, -1.0,
-      -1.0,  1.0,
-      -1.0,  1.0,
-       1.0, -1.0,
-       1.0,  1.0 :: Double]]
-    ,  gl ^. js ("STATIC_DRAW"::Text)
-    )
-  -- jsg "console" ^. js1 "log" (gl ^. js0 "getError")
+  buffer <- createBuffer gl
+  bindBuffer gl ARRAY_BUFFER (Just buffer)
+  array <- liftDOM (new (jsg ("Float32Array"::Text))
+        [[ -1.0, -1.0,
+            1.0, -1.0,
+           -1.0,  1.0,
+           -1.0,  1.0,
+            1.0, -1.0,
+            1.0,  1.0 :: Double]])
+    >>= unsafeCastTo Float32Array
+  let array' = uncheckedCastTo ArrayBuffer array
+  bufferData gl ARRAY_BUFFER (Just array') STATIC_DRAW
 
-  vertexShader <- liftJSM $ gl ^. js1 ("createShader"::Text) (gl ^. js ("VERTEX_SHADER"::Text))
-  liftJSM $ gl ^. js2 ("shaderSource"::Text) vertexShader vertexShaderSource
-  liftJSM $ gl ^. js1 ("compileShader"::Text) vertexShader
+  vertexShader <- createShader gl VERTEX_SHADER
+  shaderSource gl (Just vertexShader) vertexShaderSource
+  compileShader gl (Just vertexShader)
   -- jsg "console" ^. js1 "log" (gl ^. js1 "getShaderInfoLog" vertexShader)
 
-  fragmentShader <- liftJSM $ gl ^. js1 ("createShader"::Text) (gl ^. js ("FRAGMENT_SHADER"::Text))
-  liftJSM $ gl ^. js2 ("shaderSource"::Text) fragmentShader fragmentShaderSource
-  liftJSM $ gl ^. js1 ("compileShader"::Text) fragmentShader
+  fragmentShader <- createShader gl FRAGMENT_SHADER
+  shaderSource gl (Just fragmentShader) fragmentShaderSource
+  compileShader gl (Just fragmentShader)
   -- jsg "console" ^. js1 "log" (gl ^. js1 "getShaderInfoLog" fragmentShader)
-  err <- liftJSM $ gl ^. js1 ("getShaderInfoLog"::Text) fragmentShader
-  -- liftJSM $ jsg ("console"::Text) ^. js1 ("log"::Text) err
-  printErr . fmap textFromJSString =<< liftJSM (fromJSVal err)
+  err <- getShaderInfoLog gl (Just fragmentShader)
+  printErr err
 
-  program <- liftJSM $ gl ^. js0 ("createProgram"::Text)
-  liftJSM $ gl ^. js2 ("attachShader"::Text) program vertexShader
-  liftJSM $ gl ^. js2 ("attachShader"::Text) program fragmentShader
-  liftJSM $ gl ^. js1 ("linkProgram"::Text) program
-  liftJSM $ gl ^. js1 ("useProgram"::Text) program
+  program <- createProgram gl
+  attachShader gl (Just program) (Just vertexShader)
+  attachShader gl (Just program) (Just fragmentShader)
+  linkProgram gl (Just program)
+  useProgram gl (Just program)
   -- jsg "console" ^. js1 "log" (gl ^. js1 "getProgramInfoLog" program)
 
-  positionLocation <- liftJSM $ gl ^. js2 ("getAttribLocation"::Text) program ("a_position"::Text)
-  liftJSM $ gl ^. js1 ("enableVertexAttribArray"::Text) positionLocation
-  liftJSM $ gl ^. jsf ("vertexAttribPointer"::Text) (positionLocation, 2::Int, gl ^. js ("FLOAT"::Text), False, 0::Int, 0::Int)
-  liftJSM $ jsg ("console"::Text) ^. js1 ("log"::Text) program
+  positionLocation <- getAttribLocation gl (Just program) ("a_position" :: Text)
+  enableVertexAttribArray gl (fromIntegral positionLocation)
+  vertexAttribPointer gl (fromIntegral positionLocation) 2 FLOAT False 0 0
+  -- liftJSM $ jsg ("console"::Text) ^. js1 ("log"::Text) program
 
-  windowSizeLocation <- liftJSM $ gl ^. js2 ("getUniformLocation"::Text) program ("u_windowSize"::Text)
-  liftJSM $ gl ^. jsf ("uniform2f"::Text) (windowSizeLocation, gl ^. js ("drawingBufferWidth"::Text), gl ^. js ("drawingBufferHeight"::Text))
+  windowSizeLocation <- getUniformLocation gl (Just program) ("u_windowSize" :: Text)
+  uniform2f gl (Just windowSizeLocation) (fromIntegral w) (fromIntegral h)
 
-  liftJSM $ gl ^. jsf ("drawArrays"::Text) (gl ^. js ("TRIANGLES"::Text), 0::Int, 6::Int);
-  liftJSM $ gl ^. js0 ("finish"::Text)
-  liftJSM $ gl ^. js0 ("flush"::Text)
+  drawArrays gl TRIANGLES 0 6
   return ()
 
 fragmentShaderCanvas ::
@@ -133,7 +110,7 @@ fragmentShaderCanvas attrs fragmentShaderSource = do
                 ]
 
   performEvent $ (<$> eDraw) $ \src -> do
-    e <- liftJSM $ fromJSValUnchecked =<< toJSVal (_element_raw canvasEl)
-    onOffScreenCanvas e $ paintGL (liftIO . reportError) src
+    e <- unsafeCastTo HTMLCanvasElement $ _element_raw canvasEl
+    paintGL (liftIO . reportError) src e
 
   holdDyn Nothing eError

@@ -28,10 +28,10 @@ source-repository head
 library
   exposed-modules: Reflex.Dom.FragmentShaderCanvas
   build-depends: base >=4.2 && <5
-  build-depends: jsaddle >=0.9.4.0 && <0.10
+  build-depends: ghcjs-dom >=0.9.2 && <0.10
+  build-depends: jsaddle >=0.9.4 && <0.10
   build-depends: reflex-dom >= 0.4
   build-depends: lens >=4.0.7 && <5.0
-  build-depends: ghcjs-dom
   build-depends: transformers
   build-depends: containers
   build-depends: text

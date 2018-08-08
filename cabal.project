@@ -1,5 +1,7 @@
 packages: .
 
+documentation: True
+
 package reflex-dom
   flags: +use-warp -webkit2gtk
 
