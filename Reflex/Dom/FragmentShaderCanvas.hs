@@ -12,7 +12,7 @@ import Reflex.Dom
 
 import GHCJS.DOM.Types hiding (Text)
 import Language.Javascript.JSaddle.String
-import Language.Javascript.JSaddle.Object (js1, js2, jsf, js, js0, new, jsg)
+import Language.Javascript.JSaddle.Object (js1, js2, jsf, js, js0, new, jsg, jss)
 
 vertexShaderSource :: Text
 vertexShaderSource =
@@ -37,11 +37,29 @@ trivialFragmentShader = Text.unlines
   , "}"
   ]
 
+-- | Creates an off-screen canvas of the same size,
+-- render, executes the given operation on it, and then
+-- copies the data back
+onOffScreenCanvas :: MonadJSM m => JSVal -> (JSVal -> m ()) -> m ()
+onOffScreenCanvas onScreen paint = do
+  offScreen <- liftJSM $ jsg ("document" :: Text) ^. js1 ("createElement" :: Text) ("canvas" :: Text)
+  liftJSM $ offScreen ^. jss ("width" :: Text)  (onScreen ^. js ("width" :: Text))
+  liftJSM $ offScreen ^. jss ("height" :: Text) (onScreen ^. js ("height" :: Text))
 
-paintGL :: (MonadJSM m) => JSVal -> (Maybe Text -> m ()) -> Text -> m ()
-paintGL canvas printErr fragmentShaderSource = do
+  paint offScreen
+
+  liftJSM $ do
+     ctx <- liftJSM $ onScreen ^. js1 ("getContext"::Text) ("2d"::Text)
+     ctx ^. jsf ("drawImage"::Text) (offScreen, 0::Int, 0::Int)
+
+  return ()
+
+
+paintGL :: (MonadJSM m) => (Maybe Text -> m ()) -> Text -> JSVal -> m ()
+paintGL printErr fragmentShaderSource canvas = do
   -- adaption of
   -- https://blog.mayflower.de/4584-Playing-around-with-pixel-shaders-in-WebGL.html
+
   gl <- liftJSM $ canvas ^. js1 ("getContext"::Text) ("experimental-webgl"::Text)
   liftJSM $ gl ^. jsf ("viewport"::Text) (0::Int, 0::Int, gl ^. js ("drawingBufferWidth"::Text), gl ^. js ("drawingBufferHeight"::Text))
 
@@ -92,6 +110,8 @@ paintGL canvas printErr fragmentShaderSource = do
   liftJSM $ gl ^. jsf ("uniform2f"::Text) (windowSizeLocation, gl ^. js ("drawingBufferWidth"::Text), gl ^. js ("drawingBufferHeight"::Text))
 
   liftJSM $ gl ^. jsf ("drawArrays"::Text) (gl ^. js ("TRIANGLES"::Text), 0::Int, 6::Int);
+  liftJSM $ gl ^. js0 ("finish"::Text)
+  liftJSM $ gl ^. js0 ("flush"::Text)
   return ()
 
 fragmentShaderCanvas ::
@@ -106,8 +126,8 @@ fragmentShaderCanvas attrs fragmentShaderSource = do
   performEvent $ (<$ pb) $ do
     e <- liftJSM $ fromJSValUnchecked =<< toJSVal (_element_raw canvasEl)
     src0 <- sample (current fragmentShaderSource)
-    paintGL e (liftIO . reportError) src0
+    onOffScreenCanvas e $ paintGL (liftIO . reportError) src0
   performEvent $ (<$> updated fragmentShaderSource) $ \src -> do
     e <- liftJSM $ fromJSValUnchecked =<< toJSVal (_element_raw canvasEl)
-    paintGL e (liftIO . reportError) src
+    onOffScreenCanvas e $ paintGL (liftIO . reportError) src
   holdDyn Nothing eError
