@@ -40,6 +40,9 @@ trivialFragmentShader = Text.unlines
 -- | Creates an off-screen canvas of the same size,
 -- render, executes the given operation on it, and then
 -- copies the data back
+--
+-- probably better to do this:
+-- https://www.khronos.org/webgl/wiki/HandlingContextLost
 onOffScreenCanvas :: MonadJSM m => JSVal -> (JSVal -> m ()) -> m ()
 onOffScreenCanvas onScreen paint = do
   offScreen <- liftJSM $ jsg ("document" :: Text) ^. js1 ("createElement" :: Text) ("canvas" :: Text)
@@ -123,11 +126,14 @@ fragmentShaderCanvas attrs fragmentShaderSource = do
   (canvasEl, _) <- elAttr' "canvas" attrs $ blank
   (eError, reportError) <- newTriggerEvent
   pb <- getPostBuild
-  performEvent $ (<$ pb) $ do
-    e <- liftJSM $ fromJSValUnchecked =<< toJSVal (_element_raw canvasEl)
-    src0 <- sample (current fragmentShaderSource)
-    onOffScreenCanvas e $ paintGL (liftIO . reportError) src0
-  performEvent $ (<$> updated fragmentShaderSource) $ \src -> do
+
+  let eDraw = leftmost
+                [ updated fragmentShaderSource
+                , tag (current fragmentShaderSource) pb
+                ]
+
+  performEvent $ (<$> eDraw) $ \src -> do
     e <- liftJSM $ fromJSValUnchecked =<< toJSVal (_element_raw canvasEl)
     onOffScreenCanvas e $ paintGL (liftIO . reportError) src
+
   holdDyn Nothing eError
