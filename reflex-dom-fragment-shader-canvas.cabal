@@ -1,5 +1,5 @@
 name:                reflex-dom-fragment-shader-canvas
-version:             0.1
+version:             0.1.0.1
 synopsis:            A reflex-dom widget to draw on a canvas with a fragment shader program
 description:
   This simple reflex-dom widget takes a `Dynamic t Text` value representing
