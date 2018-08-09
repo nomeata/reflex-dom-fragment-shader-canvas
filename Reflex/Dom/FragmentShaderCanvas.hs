@@ -11,9 +11,12 @@ import Control.Monad.IO.Class
 
 import Reflex.Dom hiding (preventDefault)
 
+import GHCJS.DOM
+import GHCJS.DOM.Document
 import GHCJS.DOM.Types hiding (Text)
 import GHCJS.DOM.HTMLCanvasElement
 import GHCJS.DOM.WebGLRenderingContextBase
+import GHCJS.DOM.CanvasRenderingContext2D
 import GHCJS.DOM.EventM (on, preventDefault)
 import qualified GHCJS.DOM.EventTargetClosures as DOM (EventName, unsafeEventName)
 import Language.Javascript.JSaddle.Object (new, jsg, js1)
@@ -41,6 +44,23 @@ trivialFragmentShader = Text.unlines
   , "  gl_FragColor = vec4(1.0,0.0,0.0,1.0);"
   , "}"
   ]
+
+onOffScreenCanvas :: MonadDOM m => HTMLCanvasElement -> (HTMLCanvasElement -> m ()) -> m ()
+onOffScreenCanvas onScreen paint = do
+  doc <- currentDocumentUnchecked
+  offScreen <- createElement doc ("canvas" :: JSString)
+        >>= unsafeCastTo HTMLCanvasElement
+
+  getWidth onScreen >>= setWidth offScreen
+  getHeight onScreen >>= setHeight offScreen
+
+  paint offScreen
+
+  ctx <- getContextUnsafe onScreen ("2d"::Text) ([]::[()])
+  ctx <- unsafeCastTo CanvasRenderingContext2D ctx
+  drawImage ctx offScreen 0 0
+  return ()
+
 
 paintGL :: MonadDOM m => (Maybe Text -> m ()) -> Text -> HTMLCanvasElement -> m ()
 paintGL printErr fragmentShaderSource canvas = do
@@ -115,10 +135,10 @@ fragmentShaderCanvas attrs fragmentShaderSource = do
 
   domEl <- unsafeCastTo HTMLCanvasElement $ _element_raw canvasEl
 
+  {-
   eContextBack <- wrapDomEvent domEl (`on` webglcontextrestored) (return ())
   eContextLost <- wrapDomEvent domEl (`on` webglcontextlost)     preventDefault
 
-  {-
   performEvent $ (<$> eContextLost) $ \() -> do
     liftJSM $
         jsg ("console"::Text) ^. js1 ("log"::Text) ("lost" :: Text)
@@ -131,10 +151,10 @@ fragmentShaderCanvas attrs fragmentShaderSource = do
   let eDraw = leftmost
                 [ updated fragmentShaderSource
                 , tag (current fragmentShaderSource) pb
-                , tag (current fragmentShaderSource) eContextBack
+  --              , tag (current fragmentShaderSource) eContextBack
                 ]
 
   performEvent $ (<$> eDraw) $ \src -> do
-    paintGL (liftIO . reportError) src domEl
+    onOffScreenCanvas domEl $ paintGL (liftIO . reportError) src
 
   holdDyn Nothing eError
