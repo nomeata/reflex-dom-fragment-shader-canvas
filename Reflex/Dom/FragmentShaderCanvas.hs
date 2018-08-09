@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 module Reflex.Dom.FragmentShaderCanvas (fragmentShaderCanvas, trivialFragmentShader) where
 
@@ -8,11 +9,13 @@ import Data.Text as Text (Text, unlines)
 import Control.Lens ((^.))
 import Control.Monad.IO.Class
 
-import Reflex.Dom
+import Reflex.Dom hiding (preventDefault)
 
 import GHCJS.DOM.Types hiding (Text)
 import GHCJS.DOM.HTMLCanvasElement
 import GHCJS.DOM.WebGLRenderingContextBase
+import GHCJS.DOM.EventM (on, preventDefault)
+import qualified GHCJS.DOM.EventTargetClosures as DOM (EventName, unsafeEventName)
 import Language.Javascript.JSaddle.Object (new, jsg, js1)
 
 
@@ -94,6 +97,12 @@ paintGL printErr fragmentShaderSource canvas = do
   drawArrays gl TRIANGLES 0 6
   return ()
 
+webglcontextrestored :: DOM.EventName HTMLCanvasElement WebGLContextEvent
+webglcontextrestored = DOM.unsafeEventName "webglcontextrestored"
+
+webglcontextlost :: DOM.EventName HTMLCanvasElement WebGLContextEvent
+webglcontextlost = DOM.unsafeEventName "webglcontextlost"
+
 fragmentShaderCanvas ::
     (MonadWidget t m) =>
     (Map Text Text) ->
@@ -104,13 +113,28 @@ fragmentShaderCanvas attrs fragmentShaderSource = do
   (eError, reportError) <- newTriggerEvent
   pb <- getPostBuild
 
+  domEl <- unsafeCastTo HTMLCanvasElement $ _element_raw canvasEl
+
+  eContextBack <- wrapDomEvent domEl (`on` webglcontextrestored) (return ())
+  eContextLost <- wrapDomEvent domEl (`on` webglcontextlost)     preventDefault
+
+  {-
+  performEvent $ (<$> eContextLost) $ \() -> do
+    liftJSM $
+        jsg ("console"::Text) ^. js1 ("log"::Text) ("lost" :: Text)
+
+  performEvent $ (<$> eContextBack) $ \() -> do
+    liftJSM $
+        jsg ("console"::Text) ^. js1 ("log"::Text) ("back" :: Text)
+  -}
+
   let eDraw = leftmost
                 [ updated fragmentShaderSource
                 , tag (current fragmentShaderSource) pb
+                , tag (current fragmentShaderSource) eContextBack
                 ]
 
   performEvent $ (<$> eDraw) $ \src -> do
-    e <- unsafeCastTo HTMLCanvasElement $ _element_raw canvasEl
-    paintGL (liftIO . reportError) src e
+    paintGL (liftIO . reportError) src domEl
 
   holdDyn Nothing eError
