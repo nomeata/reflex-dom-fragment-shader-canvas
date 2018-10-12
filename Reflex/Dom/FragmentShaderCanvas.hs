@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 module Reflex.Dom.FragmentShaderCanvas (fragmentShaderCanvas, trivialFragmentShader) where
 
@@ -67,55 +68,59 @@ paintGL printErr fragmentShaderSource canvas = do
   -- adaption of
   -- https://blog.mayflower.de/4584-Playing-around-with-pixel-shaders-in-WebGL.html
 
-  gl <- getContextUnsafe canvas ("experimental-webgl"::Text) ([]::[()])
-  gl <- unsafeCastTo WebGLRenderingContext gl
+  getContext canvas ("experimental-webgl"::Text) ([]::[()]) >>= \case
+    Nothing -> do
+      -- jsg "console" ^. js1 "log" (gl ^. js1 "getShaderInfoLog" vertexShader)
+      return ()
+    Just gl -> do
+      gl <- unsafeCastTo WebGLRenderingContext gl
 
-  w <- getDrawingBufferWidth gl
-  h <- getDrawingBufferHeight gl
-  viewport gl 0 0 w h
+      w <- getDrawingBufferWidth gl
+      h <- getDrawingBufferHeight gl
+      viewport gl 0 0 w h
 
-  buffer <- createBuffer gl
-  bindBuffer gl ARRAY_BUFFER (Just buffer)
-  array <- liftDOM (new (jsg ("Float32Array"::Text))
-        [[ -1.0, -1.0,
-            1.0, -1.0,
-           -1.0,  1.0,
-           -1.0,  1.0,
-            1.0, -1.0,
-            1.0,  1.0 :: Double]])
-    >>= unsafeCastTo Float32Array
-  let array' = uncheckedCastTo ArrayBuffer array
-  bufferData gl ARRAY_BUFFER (Just array') STATIC_DRAW
+      buffer <- createBuffer gl
+      bindBuffer gl ARRAY_BUFFER (Just buffer)
+      array <- liftDOM (new (jsg ("Float32Array"::Text))
+            [[ -1.0, -1.0,
+                1.0, -1.0,
+               -1.0,  1.0,
+               -1.0,  1.0,
+                1.0, -1.0,
+                1.0,  1.0 :: Double]])
+        >>= unsafeCastTo Float32Array
+      let array' = uncheckedCastTo ArrayBuffer array
+      bufferData gl ARRAY_BUFFER (Just array') STATIC_DRAW
 
-  vertexShader <- createShader gl VERTEX_SHADER
-  shaderSource gl (Just vertexShader) vertexShaderSource
-  compileShader gl (Just vertexShader)
-  -- jsg "console" ^. js1 "log" (gl ^. js1 "getShaderInfoLog" vertexShader)
+      vertexShader <- createShader gl VERTEX_SHADER
+      shaderSource gl (Just vertexShader) vertexShaderSource
+      compileShader gl (Just vertexShader)
+      -- jsg "console" ^. js1 "log" (gl ^. js1 "getShaderInfoLog" vertexShader)
 
-  fragmentShader <- createShader gl FRAGMENT_SHADER
-  shaderSource gl (Just fragmentShader) fragmentShaderSource
-  compileShader gl (Just fragmentShader)
-  -- jsg "console" ^. js1 "log" (gl ^. js1 "getShaderInfoLog" fragmentShader)
-  err <- getShaderInfoLog gl (Just fragmentShader)
-  printErr err
+      fragmentShader <- createShader gl FRAGMENT_SHADER
+      shaderSource gl (Just fragmentShader) fragmentShaderSource
+      compileShader gl (Just fragmentShader)
+      -- jsg "console" ^. js1 "log" (gl ^. js1 "getShaderInfoLog" fragmentShader)
+      err <- getShaderInfoLog gl (Just fragmentShader)
+      printErr err
 
-  program <- createProgram gl
-  attachShader gl (Just program) (Just vertexShader)
-  attachShader gl (Just program) (Just fragmentShader)
-  linkProgram gl (Just program)
-  useProgram gl (Just program)
-  -- jsg "console" ^. js1 "log" (gl ^. js1 "getProgramInfoLog" program)
+      program <- createProgram gl
+      attachShader gl (Just program) (Just vertexShader)
+      attachShader gl (Just program) (Just fragmentShader)
+      linkProgram gl (Just program)
+      useProgram gl (Just program)
+      -- jsg "console" ^. js1 "log" (gl ^. js1 "getProgramInfoLog" program)
 
-  positionLocation <- getAttribLocation gl (Just program) ("a_position" :: Text)
-  enableVertexAttribArray gl (fromIntegral positionLocation)
-  vertexAttribPointer gl (fromIntegral positionLocation) 2 FLOAT False 0 0
-  -- liftJSM $ jsg ("console"::Text) ^. js1 ("log"::Text) program
+      positionLocation <- getAttribLocation gl (Just program) ("a_position" :: Text)
+      enableVertexAttribArray gl (fromIntegral positionLocation)
+      vertexAttribPointer gl (fromIntegral positionLocation) 2 FLOAT False 0 0
+      -- liftJSM $ jsg ("console"::Text) ^. js1 ("log"::Text) program
 
-  windowSizeLocation <- getUniformLocation gl (Just program) ("u_windowSize" :: Text)
-  uniform2f gl (Just windowSizeLocation) (fromIntegral w) (fromIntegral h)
+      windowSizeLocation <- getUniformLocation gl (Just program) ("u_windowSize" :: Text)
+      uniform2f gl (Just windowSizeLocation) (fromIntegral w) (fromIntegral h)
 
-  drawArrays gl TRIANGLES 0 6
-  return ()
+      drawArrays gl TRIANGLES 0 6
+      return ()
 
 webglcontextrestored :: DOM.EventName HTMLCanvasElement WebGLContextEvent
 webglcontextrestored = DOM.unsafeEventName "webglcontextrestored"
