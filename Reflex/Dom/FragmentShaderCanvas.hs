@@ -3,7 +3,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
-module Reflex.Dom.FragmentShaderCanvas (fragmentShaderCanvas, trivialFragmentShader) where
+module Reflex.Dom.FragmentShaderCanvas
+    ( fragmentShaderCanvas
+    , fragmentShaderCanvas'
+    , trivialFragmentShader
+    ) where
 
 import Data.Map (Map)
 import Data.Text as Text (Text, unlines)
@@ -133,7 +137,15 @@ fragmentShaderCanvas ::
     (Map Text Text) ->
     Dynamic t Text ->
     m (Dynamic t (Maybe Text))
-fragmentShaderCanvas attrs fragmentShaderSource = do
+fragmentShaderCanvas attrs fragmentShaderCanvas
+    = snd <$> fragmentShaderCanvas' attrs fragmentShaderCanvas
+
+fragmentShaderCanvas' ::
+    (MonadWidget t m) =>
+    (Map Text Text) ->
+    Dynamic t Text ->
+    m (El t, Dynamic t (Maybe Text))
+fragmentShaderCanvas' attrs fragmentShaderSource = do
   (canvasEl, _) <- elAttr' "canvas" attrs $ blank
   (eError, reportError) <- newTriggerEvent
   pb <- getPostBuild
@@ -162,4 +174,6 @@ fragmentShaderCanvas attrs fragmentShaderSource = do
   performEvent $ (<$> eDraw) $ \src -> do
     onOffScreenCanvas domEl $ paintGL (liftIO . reportError) src
 
-  holdDyn Nothing eError
+  dErr <- holdDyn Nothing eError
+  return (canvasEl, dErr)
+

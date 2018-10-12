@@ -1,5 +1,9 @@
 # Revision history for reflex-dom-fragment-shader-canvas
 
+## 0.2 -- 2018-10-12
+
+* Provide fragmentShaderCanvas'
+
 ## 0.1.0.2 -- 2018-10-12
 
 * Silently ignore if the webgl context cannot be enabled
